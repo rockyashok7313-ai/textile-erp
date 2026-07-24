@@ -1,7 +1,7 @@
 [build]
-builder = "nixpacks"
-buildCommand = "dotnet publish TextileERP.API/TextileERP.API.csproj -c Release -o output"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "dotnet output/TextileERP.API.dll"
+startCommand = ""
 healthcheckPath = "/swagger/v1/swagger.json"
