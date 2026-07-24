@@ -1,6 +1,6 @@
 {
   "/api": {
-    "target": "http://localhost:5000",
+    "target": "https://textile-erp-fullstack.vercel.app",
     "secure": false,
     "changeOrigin": true
   }
