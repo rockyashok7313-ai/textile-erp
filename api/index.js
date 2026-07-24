@@ -264,7 +264,7 @@ function seedData() {
   for (const s of states) sStmt.run(s[0], s[1], s[2], s[3], nowTs);
 
   db.prepare('INSERT INTO Companies (CompanyCode, CompanyName, AddressLine1, City, StateId, StateCode, PinCode, Phone, Email, GSTIN, PAN, TAN, CountryId, IsActive, CreatedDate) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,1,?)').run(
-    'CMP-001', 'Textile ERP Demo Pvt Ltd', '123 Ring Road, Textile Market', 'Surat', 12, 'GJ', '395002', '+912612345678', 'info@textileerp-demo.in', '24AABCT1234F1Z5', 'AABCT1234F', 'MUMT1234F', 1, nowTs
+    'CMP-001', 'Textile ERP Demo Pvt Ltd', '123 Ring Road, Textile Market', 'Surat', 12, 'GJ', '395002', '+912612345678', 'info@textileerp-demo.in', '24AABCT1234F1Z5', 'AABCT1234F', 'MUMT1234F', nowTs
   );
 
   db.prepare('INSERT INTO Users (UserCode, UserName, LoginId, PasswordHash, Email, Mobile, CompanyId, IsAdmin, IsSuperAdmin, IsActive, CreatedDate) VALUES (?,?,?,?,?,?,?,?,?,?,?)').run(
