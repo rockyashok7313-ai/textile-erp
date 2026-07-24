@@ -1,0 +1,82 @@
+<div class="layout" [class.sidebar-collapsed]="sidebarCollapsed()">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-icon">T</span>
+      <span class="brand-text" *ngIf="!sidebarCollapsed()">Textile ERP</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      @for (group of menuGroups(); track group.label) {
+        @if (group.children) {
+          <div class="nav-group">
+            <button
+              class="nav-group-header"
+              (click)="toggleGroup(group)"
+              [attr.aria-expanded]="group.expanded">
+              <span class="material-icons nav-icon">{{ group.icon }}</span>
+              <span class="nav-label" *ngIf="!sidebarCollapsed()">{{ group.label }}</span>
+              <span
+                class="material-icons expand-icon"
+                [class.expanded]="group.expanded"
+                *ngIf="!sidebarCollapsed()">
+                expand_more
+              </span>
+            </button>
+            @if (group.expanded && !sidebarCollapsed()) {
+              <div class="nav-group-items">
+                @for (child of group.children; track child.route) {
+                  <a
+                    class="nav-item"
+                    [routerLink]="child.route"
+                    routerLinkActive="active">
+                    <span class="material-icons nav-icon child-icon">{{ child.icon }}</span>
+                    <span class="nav-label">{{ child.label }}</span>
+                  </a>
+                }
+              </div>
+            }
+          </div>
+        } @else {
+          <a
+            class="nav-item single"
+            [routerLink]="group.route"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: group.route === '/dashboard' }">
+            <span class="material-icons nav-icon">{{ group.icon }}</span>
+            <span class="nav-label" *ngIf="!sidebarCollapsed()">{{ group.label }}</span>
+          </a>
+        }
+      }
+    </nav>
+  </aside>
+
+  <div class="main-area">
+    <header class="top-header">
+      <div class="header-left">
+        <button class="toggle-btn" (click)="toggleSidebar()">
+          <span class="material-icons">menu</span>
+        </button>
+        <span class="company-name">Textile ERP</span>
+      </div>
+      <div class="header-right">
+        <div class="user-info">
+          <span class="material-icons user-avatar">person</span>
+          @if (currentUser(); as user) {
+            <div class="user-details">
+              <span class="user-name">{{ user.fullName }}</span>
+              <span class="user-role">{{ user.designation ?? 'User' }}</span>
+            </div>
+          }
+        </div>
+        <button class="logout-btn" (click)="authService.logout()">
+          <span class="material-icons">logout</span>
+          <span class="logout-text">Logout</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

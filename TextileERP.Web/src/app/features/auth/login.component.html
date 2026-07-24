@@ -1,0 +1,68 @@
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="logo">
+        <span class="logo-icon">T</span>
+      </div>
+      <h1 class="app-title">Textile ERP</h1>
+      <p class="app-subtitle">Sign in to your account</p>
+    </div>
+
+    @if (errorMessage()) {
+      <div class="error-banner">
+        <span class="material-icons">error</span>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+
+    <form class="login-form" (submit)="onSubmit($event)">
+      <div class="field">
+        <label for="username">Username</label>
+        <div class="input-wrapper">
+          <span class="material-icons field-icon">person</span>
+          <input
+            id="username"
+            type="text"
+            placeholder="Enter username"
+            [value]="username()"
+            (input)="onUsernameInput($event)"
+            [disabled]="loading()"
+            autocomplete="username"
+            required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="input-wrapper">
+          <span class="material-icons field-icon">lock</span>
+          <input
+            id="password"
+            type="password"
+            placeholder="Enter password"
+            [value]="password()"
+            (input)="onPasswordInput($event)"
+            [disabled]="loading()"
+            autocomplete="current-password"
+            required />
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        class="login-btn"
+        [disabled]="loading() || !username() || !password()">
+        @if (loading()) {
+          <span class="spinner"></span>
+          <span>Signing in...</span>
+        } @else {
+          <span>Sign In</span>
+        }
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <span>Contact your administrator for login credentials</span>
+    </div>
+  </div>
+</div>

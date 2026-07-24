@@ -1,0 +1,42 @@
+# Build results
+/dist
+/TextileERP.Web/dist
+/TextileERP.API/bin
+/TextileERP.API/obj
+/TextileERP.API/logs
+
+# NuGet
+*.nupkg
+**/[Pp]ackages/
+**/[Bb]uild/
+project.lock.json
+
+# .NET
+*.user
+*.suo
+*.cache
+*.vs/
+.vscode/
+
+# Node
+**/node_modules/
+**/.angular/cache
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# IDE
+.idea/
+*.sln.DotSettings.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel
+
+# Logs
+*.log

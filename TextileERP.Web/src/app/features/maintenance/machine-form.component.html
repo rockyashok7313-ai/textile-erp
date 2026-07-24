@@ -1,0 +1,109 @@
+<div class="form-container">
+  <div class="page-header">
+    <h2>{{ isEdit() ? 'Edit Machine' : 'New Machine' }}</h2>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+    <div class="form-section">
+      <h3>Machine Information</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Machine Code *</label>
+          <input formControlName="code" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Machine Name *</label>
+          <input formControlName="name" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Machine Type *</label>
+          <select formControlName="machineType" class="form-control">
+            <option value="">Select Type</option>
+            @for (type of machineTypes; track type) {
+              <option [value]="type">{{ type }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group full-width">
+          <label>Description</label>
+          <textarea formControlName="description" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Manufacturing Details</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Manufacturer / Make</label>
+          <input formControlName="manufacturer" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Model</label>
+          <input formControlName="model" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Serial Number</label>
+          <input formControlName="serialNumber" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Purchase Date</label>
+          <input formControlName="purchaseDate" type="date" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Purchase Price</label>
+          <input formControlName="purchasePrice" type="number" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Warranty Expiry Date</label>
+          <input formControlName="warrantyExpiryDate" type="date" class="form-control" />
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Status &amp; Maintenance</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Status *</label>
+          <select formControlName="status" class="form-control">
+            @for (status of statusOptions; track status) {
+              <option [value]="status">{{ status }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input formControlName="isOperational" type="checkbox" />
+            Operational
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Total Running Hours</label>
+          <input formControlName="totalRunningHours" type="number" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Last Maintenance Date</label>
+          <input formControlName="lastMaintenanceDate" type="date" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Next Maintenance Date</label>
+          <input formControlName="nextMaintenanceDate" type="date" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input formControlName="isActive" type="checkbox" />
+            Active
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" (click)="onCancel()">Cancel</button>
+      <button type="submit" class="btn btn-primary" [disabled]="saving()">
+        {{ saving() ? 'Saving...' : 'Save' }}
+      </button>
+    </div>
+  </form>
+</div>

@@ -1,0 +1,72 @@
+<div class="employee-list-container">
+  <div class="page-header">
+    <h2>Employees</h2>
+    <button class="btn btn-primary" (click)="navigateToCreate()">+ New Employee</button>
+  </div>
+
+  <div class="filters">
+    <input
+      type="text"
+      placeholder="Search by code, name..."
+      [ngModel]="searchTerm()"
+      (ngModelChange)="searchTerm.set($event)"
+      class="search-input"
+    />
+    <select
+      [ngModel]="selectedDepartment()"
+      (ngModelChange)="selectedDepartment.set($event ? +$event : null)"
+      class="filter-select"
+    >
+      <option [ngValue]="null">All Departments</option>
+      @for (dept of departments(); track dept.id) {
+        <option [ngValue]="dept.id">{{ dept.name }}</option>
+      }
+    </select>
+  </div>
+
+  @if (loading()) {
+    <div class="loading">Loading employees...</div>
+  } @else {
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Employee Code</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Department</th>
+            <th>Designation</th>
+            <th>Employment Type</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (emp of filteredEmployees(); track emp.id) {
+            <tr>
+              <td>{{ emp.employeeCode }}</td>
+              <td>{{ emp.firstName }}</td>
+              <td>{{ emp.lastName }}</td>
+              <td>{{ getDepartmentName(emp.departmentId) }}</td>
+              <td>{{ emp.designation?.name ?? '-' }}</td>
+              <td>{{ emp.isProbationary ? 'Probation' : 'Confirmed' }}</td>
+              <td>
+                <span class="status-badge" [class.active]="emp.isActive" [class.inactive]="!emp.isActive">
+                  {{ emp.isActive ? 'Active' : 'Inactive' }}
+                </span>
+              </td>
+              <td class="actions">
+                <button class="btn btn-sm btn-edit" (click)="editEmployee(emp.id)">Edit</button>
+                <button class="btn btn-sm btn-danger" (click)="deleteEmployee(emp)">Delete</button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="8" class="no-data">No employees found</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

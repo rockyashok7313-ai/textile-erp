@@ -1,0 +1,220 @@
+$gradient-start: #0f3460;
+$gradient-end: #1a1a2e;
+$accent: #e94560;
+$card-bg: #ffffff;
+$text-primary: #2d3436;
+$text-secondary: #636e72;
+$input-border: #dfe6e9;
+$input-focus: #0f3460;
+$error-bg: #fef2f2;
+$error-border: #fecaca;
+$error-text: #dc2626;
+
+:host {
+  display: block;
+  height: 100vh;
+}
+
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, $gradient-start 0%, $gradient-end 100%);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  padding: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: $card-bg;
+  border-radius: 16px;
+  padding: 40px 36px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+// ── Header ───────────────────────────────────────
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, $accent, #c62a71);
+  border-radius: 14px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 14px rgba(233, 69, 96, 0.35);
+}
+
+.logo-icon {
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: $text-primary;
+  letter-spacing: -0.3px;
+}
+
+.app-subtitle {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: $text-secondary;
+}
+
+// ── Error ────────────────────────────────────────
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  background: $error-bg;
+  border: 1px solid $error-border;
+  border-radius: 8px;
+  color: $error-text;
+  font-size: 13.5px;
+  font-weight: 500;
+
+  .material-icons {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+}
+
+// ── Form ─────────────────────────────────────────
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label {
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
+
+.input-wrapper {
+  position: relative;
+
+  .field-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: #b2bec3;
+    pointer-events: none;
+  }
+
+  input {
+    width: 100%;
+    padding: 11px 14px 11px 40px;
+    border: 1.5px solid $input-border;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    color: $text-primary;
+    background: #fafbfc;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+
+    &::placeholder {
+      color: #b2bec3;
+    }
+
+    &:focus {
+      border-color: $input-focus;
+      box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.1);
+      background: #ffffff;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
+
+// ── Button ───────────────────────────────────────
+
+.login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  margin-top: 6px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, $accent, #c62a71);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(233, 69, 96, 0.35);
+
+  &:hover:not(:disabled) {
+    box-shadow: 0 6px 20px rgba(233, 69, 96, 0.45);
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+}
+
+.spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// ── Footer ───────────────────────────────────────
+
+.login-footer {
+  text-align: center;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 12.5px;
+  color: #b2bec3;
+}

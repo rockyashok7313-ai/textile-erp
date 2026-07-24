@@ -1,0 +1,207 @@
+<div class="form-container">
+  <div class="page-header">
+    <h2>{{ isEdit() ? 'Edit Employee' : 'New Employee' }}</h2>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+    <div class="form-section">
+      <h3>Personal Information</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Employee Code *</label>
+          <input formControlName="employeeCode" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>First Name *</label>
+          <input formControlName="firstName" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Last Name *</label>
+          <input formControlName="lastName" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Date of Birth</label>
+          <input formControlName="dateOfBirth" type="date" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Gender</label>
+          <select formControlName="gender" class="form-control">
+            <option value="">Select</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Marital Status</label>
+          <select formControlName="maritalStatus" class="form-control">
+            <option value="">Select</option>
+            <option value="Single">Single</option>
+            <option value="Married">Married</option>
+            <option value="Divorced">Divorced</option>
+            <option value="Widowed">Widowed</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Blood Group</label>
+          <select formControlName="bloodGroup" class="form-control">
+            <option value="">Select</option>
+            <option value="A+">A+</option>
+            <option value="A-">A-</option>
+            <option value="B+">B+</option>
+            <option value="B-">B-</option>
+            <option value="O+">O+</option>
+            <option value="O-">O-</option>
+            <option value="AB+">AB+</option>
+            <option value="AB-">AB-</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Employment Details</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Date of Joining *</label>
+          <input formControlName="dateOfJoining" type="date" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Department *</label>
+          <select formControlName="departmentId" class="form-control">
+            <option [ngValue]="null">Select Department</option>
+            @for (dept of departments(); track dept.id) {
+              <option [ngValue]="dept.id">{{ dept.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Designation *</label>
+          <select formControlName="designationId" class="form-control">
+            <option [ngValue]="null">Select Designation</option>
+            @for (desig of designations(); track desig.id) {
+              <option [ngValue]="desig.id">{{ desig.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Basic Salary</label>
+          <input formControlName="basicSalary" type="number" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Gross Salary</label>
+          <input formControlName="grossSalary" type="number" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input formControlName="isProbationary" type="checkbox" />
+            Probationary
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Probation End Date</label>
+          <input formControlName="probationEndDate" type="date" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input formControlName="isActive" type="checkbox" />
+            Active
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Statutory Details</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>PAN Number</label>
+          <input formControlName="panNumber" type="text" class="form-control" maxlength="10" />
+        </div>
+        <div class="form-group">
+          <label>Aadhaar Number</label>
+          <input formControlName="aadhaarNumber" type="text" class="form-control" maxlength="12" />
+        </div>
+        <div class="form-group">
+          <label>PF Number</label>
+          <input formControlName="pfNumber" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>ESI Number</label>
+          <input formControlName="esiNumber" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>UAN Number</label>
+          <input formControlName="uanNumber" type="text" class="form-control" />
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Contact &amp; Address</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Personal Email</label>
+          <input formControlName="personalEmail" type="email" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Company Email</label>
+          <input formControlName="companyEmail" type="email" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input formControlName="phone" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Mobile</label>
+          <input formControlName="mobile" type="text" class="form-control" />
+        </div>
+        <div class="form-group full-width">
+          <label>Address</label>
+          <textarea formControlName="address" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label>City</label>
+          <input formControlName="city" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Pincode</label>
+          <input formControlName="pincode" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Emergency Contact Name</label>
+          <input formControlName="emergencyContactName" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Emergency Contact Phone</label>
+          <input formControlName="emergencyContactPhone" type="text" class="form-control" />
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Bank Details</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Bank Account Number</label>
+          <input formControlName="bankAccountNumber" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Bank Name</label>
+          <input formControlName="bankName" type="text" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>IFSC Code</label>
+          <input formControlName="ifscCode" type="text" class="form-control" />
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" (click)="onCancel()">Cancel</button>
+      <button type="submit" class="btn btn-primary" [disabled]="saving()">
+        {{ saving() ? 'Saving...' : 'Save' }}
+      </button>
+    </div>
+  </form>
+</div>

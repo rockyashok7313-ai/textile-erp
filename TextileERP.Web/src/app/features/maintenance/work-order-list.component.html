@@ -1,0 +1,108 @@
+<div class="work-order-container">
+  <div class="page-header">
+    <h2>Work Orders</h2>
+    <button class="btn btn-primary" (click)="navigateToCreate()">+ New Work Order</button>
+  </div>
+
+  <div class="filters">
+    <select class="filter-select" (change)="onStatusFilter($event)">
+      <option value="">All Statuses</option>
+      <option value="Created">Created</option>
+      <option value="InProgress">In Progress</option>
+      <option value="Completed">Completed</option>
+      <option value="Cancelled">Cancelled</option>
+    </select>
+  </div>
+
+  @if (loading()) {
+    <div class="loading">Loading work orders...</div>
+  } @else {
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Work Order #</th>
+            <th>Machine</th>
+            <th>Type</th>
+            <th>Priority</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Estimated Hours</th>
+            <th>Actual Hours</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (wo of filteredOrders(); track wo.id) {
+            <tr>
+              <td class="code">{{ wo.orderNumber }}</td>
+              <td>{{ wo.machine?.name ?? '-' }}</td>
+              <td>{{ wo.description ?? '-' }}</td>
+              <td>
+                @if (wo.priority) {
+                  <span class="priority-badge" [class]="'priority-' + wo.priority.toLowerCase()">
+                    {{ wo.priority }}
+                  </span>
+                } @else {
+                  -
+                }
+              </td>
+              <td>{{ wo.startDate | date:'dd MMM yyyy' }}</td>
+              <td>{{ wo.endDate ? (wo.endDate | date:'dd MMM yyyy') : '-' }}</td>
+              <td>{{ wo.estimatedHours ?? '-' }}</td>
+              <td>{{ wo.actualHours ?? '-' }}</td>
+              <td>
+                <span class="status-badge" [class]="getStatusClass(wo.status)">
+                  {{ wo.status }}
+                </span>
+              </td>
+              <td class="actions">
+                @if (wo.status === 'Created' || wo.status === 'InProgress') {
+                  <button class="btn btn-sm btn-success" (click)="openCompleteModal(wo)">Complete</button>
+                  <button class="btn btn-sm btn-danger" (click)="openCancelModal(wo)">Cancel</button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="10" class="no-data">No work orders found</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  @if (completeModalOpen()) {
+    <div class="modal-overlay" (click)="closeModal()">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h3>Complete Work Order - {{ selectedOrder()?.orderNumber }}</h3>
+        <div class="form-group">
+          <label>Completion Notes</label>
+          <textarea [(ngModel)]="completionNotes" class="form-control" rows="3" placeholder="Enter completion notes..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" (click)="closeModal()">Cancel</button>
+          <button class="btn btn-success" (click)="completeOrder()">Mark Complete</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (cancelModalOpen()) {
+    <div class="modal-overlay" (click)="closeModal()">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h3>Cancel Work Order - {{ selectedOrder()?.orderNumber }}</h3>
+        <div class="form-group">
+          <label>Cancellation Reason</label>
+          <textarea [(ngModel)]="cancelReason" class="form-control" rows="3" placeholder="Enter reason for cancellation..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" (click)="closeModal()">Close</button>
+          <button class="btn btn-danger" (click)="cancelOrder()">Cancel Work Order</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

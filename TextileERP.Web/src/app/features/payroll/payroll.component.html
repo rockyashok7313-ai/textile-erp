@@ -1,0 +1,96 @@
+<div class="payroll-container">
+  <div class="page-header">
+    <h2>Payroll Processing</h2>
+  </div>
+
+  <div class="process-section">
+    <h3>Process Payroll</h3>
+    <div class="process-form">
+      <div class="form-group">
+        <label>Payroll Period *</label>
+        <select [(ngModel)]="selectedPeriodId" class="form-control">
+          <option [ngValue]="null">Select Period</option>
+          @for (period of periods(); track period.id) {
+            <option [ngValue]="period.id">{{ period.name }} ({{ period.startDate | date:'dd MMM' }} - {{ period.endDate | date:'dd MMM yyyy' }})</option>
+          }
+        </select>
+      </div>
+      <button
+        class="btn btn-primary"
+        (click)="processPayroll()"
+        [disabled]="processing() || !selectedPeriodId()"
+      >
+        {{ processing() ? 'Processing...' : 'Process Payroll' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="payroll-list-section">
+    <div class="section-header">
+      <h3>Payroll Records</h3>
+      <select class="filter-select" (change)="onStatusFilter($event)">
+        <option value="">All Statuses</option>
+        <option value="Draft">Draft</option>
+        <option value="Processed">Processed</option>
+        <option value="Approved">Approved</option>
+        <option value="Paid">Paid</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+    </div>
+
+    @if (loading()) {
+      <div class="loading">Loading payroll records...</div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Period</th>
+              <th>Basic Salary</th>
+              <th>Gross Earnings</th>
+              <th>Total Deductions</th>
+              <th>Net Salary</th>
+              <th>Working Days</th>
+              <th>LOP Days</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (pay of filteredPayroll(); track pay.id) {
+              <tr>
+                <td>{{ pay.employee?.firstName }} {{ pay.employee?.lastName }}</td>
+                <td>{{ pay.payrollPeriod?.name ?? '-' }}</td>
+                <td class="amount">{{ pay.basicSalary | currency:'INR':'symbol':'1.0-0' }}</td>
+                <td class="amount">{{ pay.grossEarnings | currency:'INR':'symbol':'1.0-0' }}</td>
+                <td class="amount deduction">{{ pay.totalDeductions | currency:'INR':'symbol':'1.0-0' }}</td>
+                <td class="amount net">{{ pay.netSalary | currency:'INR':'symbol':'1.0-0' }}</td>
+                <td>{{ pay.workingDays ?? '-' }}</td>
+                <td>{{ pay.lopDays ?? 0 }}</td>
+                <td>
+                  <span class="status-badge" [class]="getStatusClass(pay.status)">
+                    {{ pay.status }}
+                  </span>
+                </td>
+                <td class="actions">
+                  @if (pay.status === 'Processed') {
+                    <button class="btn btn-sm btn-success" (click)="approvePayroll(pay)">Approve</button>
+                    <button class="btn btn-sm btn-danger" (click)="cancelPayroll(pay)">Cancel</button>
+                  }
+                  @if (pay.status === 'Approved') {
+                    <button class="btn btn-sm btn-danger" (click)="cancelPayroll(pay)">Cancel</button>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="10" class="no-data">No payroll records found</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
