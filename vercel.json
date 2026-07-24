@@ -1,0 +1,16 @@
+{
+  "installCommand": "cd TextileERP.Web && npm install && cd ../api && npm install",
+  "buildCommand": "cd TextileERP.Web && npx ng build --configuration production",
+  "outputDirectory": "TextileERP.Web/dist/textile-erp.web/browser",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/((?!assets/).*)",
+      "destination": "/TextileERP.Web/dist/textile-erp.web/browser/index.html"
+    }
+  ]
+}
