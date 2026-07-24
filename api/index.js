@@ -419,8 +419,9 @@ initDatabase();
 
 app.post('/api/auth/login', (req, res) => {
   try {
-    const { loginId, password } = req.body;
-    const user = db.prepare('SELECT * FROM Users WHERE LoginId = ? AND IsActive = 1').get(loginId);
+    const { username, loginId, password } = req.body;
+    const loginName = username || loginId;
+    const user = db.prepare('SELECT * FROM Users WHERE (LoginId = ? OR UserName = ?) AND IsActive = 1').get(loginName, loginName);
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
     if (user.IsLocked) return res.status(423).json({ message: 'Account is locked' });
     if (user.PasswordHash !== hashPassword(password)) {
@@ -431,9 +432,11 @@ app.post('/api/auth/login', (req, res) => {
     db.prepare('UPDATE Users SET LoginAttempts = 0, LastLoginDate = ? WHERE Id = ?').run(now(), user.Id);
     const token = generateToken(user);
     const refreshToken = jwt.sign({ userId: user.Id, type: 'refresh' }, JWT_KEY, { expiresIn: '7d', issuer: JWT_ISSUER, audience: JWT_AUDIENCE });
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const company = db.prepare('SELECT CompanyName FROM Companies WHERE Id = ?').get(user.CompanyId);
     res.json({
-      token, refreshToken,
-      user: { id: user.Id, userCode: user.UserCode, userName: user.UserName, loginId: user.LoginId, email: user.Email, mobile: user.Mobile, companyId: user.CompanyId, isAdmin: user.IsAdmin, isSuperAdmin: user.IsSuperAdmin }
+      token, refreshToken, expiresAt,
+      user: { id: user.Id, username: user.UserName, fullName: user.UserName, email: user.Email, companyId: user.CompanyId, companyName: company?.CompanyName, isActive: true, department: '', designation: '', createdAt: now() }
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -446,7 +449,10 @@ app.post('/api/auth/refresh', (req, res) => {
     if (decoded.type !== 'refresh') return res.status(401).json({ message: 'Invalid token type' });
     const user = db.prepare('SELECT * FROM Users WHERE Id = ? AND IsActive = 1').get(decoded.userId);
     if (!user) return res.status(401).json({ message: 'User not found' });
-    res.json({ token: generateToken(user) });
+    const company = db.prepare('SELECT CompanyName FROM Companies WHERE Id = ?').get(user.CompanyId);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const newRefreshToken = jwt.sign({ userId: user.Id, type: 'refresh' }, JWT_KEY, { expiresIn: '7d', issuer: JWT_ISSUER, audience: JWT_AUDIENCE });
+    res.json({ token: generateToken(user), refreshToken: newRefreshToken, expiresAt, user: { id: user.Id, username: user.UserName, fullName: user.UserName, email: user.Email, companyId: user.CompanyId, companyName: company?.CompanyName, isActive: true, department: '', designation: '', createdAt: now() } });
   } catch (err) { res.status(401).json({ message: 'Invalid refresh token' }); }
 });
 
