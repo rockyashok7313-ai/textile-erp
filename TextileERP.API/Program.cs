@@ -146,13 +146,20 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAngularApp",
         builder =>
         {
-            builder.WithOrigins("http://localhost:4200")
+            builder.SetIsOriginAllowed(origin => true)
                    .AllowAnyHeader()
                    .AllowAnyMethod();
         });
 });
 
 var app = builder.Build();
+
+// Use Render-assigned port if available
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+    app.Urls.Add($"http://*:{port}");
+}
 
 // Auto-create database and seed data
 using (var scope = app.Services.CreateScope())

@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: textile-erp-api
+    runtime: dotnet
+    buildCommand: dotnet publish TextileERP.API/TextileERP.API.csproj -c Release -o output
+    startCommand: dotnet output/TextileERP.API.dll
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
