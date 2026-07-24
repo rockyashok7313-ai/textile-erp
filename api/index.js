@@ -1420,6 +1420,28 @@ app.get('/api/costsummary/:id', authMiddleware, (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// ============== DEBUG ==============
+
+app.get('/api/debug/dbstatus', (req, res) => {
+  try {
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all();
+    const userCount = db.prepare('SELECT COUNT(*) as count FROM Users').get();
+    const companyCount = db.prepare('SELECT COUNT(*) as count FROM Companies').get();
+    const itemCount = db.prepare('SELECT COUNT(*) as count FROM Items').get();
+    const user = db.prepare('SELECT Id, LoginId, UserName, PasswordHash, IsActive FROM Users LIMIT 5').all();
+    const testHash = hashPassword('admin123');
+    res.json({
+      tables: tables.map(t => t.name),
+      userCount: userCount?.count,
+      companyCount: companyCount?.count,
+      itemCount: itemCount?.count,
+      users: user,
+      testHash,
+      tmpPath: '/tmp/textileerp.db'
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 // ============== MODULE EXPORT ==============
 
 module.exports = app;
