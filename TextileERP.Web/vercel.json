@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://textileerp-api.onrender.com/api/:path*"
+      "destination": "https://textile-erp-api-production.up.railway.app/api/:path*"
     },
     {
       "source": "/((?!assets/).*)",
