@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const Database = require('better-sqlite3');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -70,166 +70,173 @@ function generateToken(user) {
 
 function initDatabase() {
   const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='Users'").get();
-  if (tableCheck) return;
+  if (tableCheck) {
+    const userCount = db.prepare('SELECT COUNT(*) as cnt FROM Users').get();
+    if (userCount && userCount.cnt > 0) return;
+  }
 
   db.exec(`
-    CREATE TABLE Users (
+    CREATE TABLE IF NOT EXISTS Users (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, UserCode TEXT, UserName TEXT, LoginId TEXT, PasswordHash TEXT,
       Email TEXT, Mobile TEXT, CompanyId INTEGER, IsAdmin INTEGER DEFAULT 0, IsSuperAdmin INTEGER DEFAULT 0,
       IsApprover INTEGER DEFAULT 0, CanApprovePurchase INTEGER DEFAULT 0, CanApproveSales INTEGER DEFAULT 0,
       CanApprovePayment INTEGER DEFAULT 0, IsLocked INTEGER DEFAULT 0, LoginAttempts INTEGER DEFAULT 0,
       LastLoginDate TEXT, IsActive INTEGER DEFAULT 1, CreatedDate TEXT
     );
-    CREATE TABLE Companies (
+    CREATE TABLE IF NOT EXISTS Companies (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, CompanyCode TEXT, CompanyName TEXT, AddressLine1 TEXT, City TEXT,
       StateId INTEGER, StateCode TEXT, PinCode TEXT, Phone TEXT, Email TEXT, GSTIN TEXT, PAN TEXT, TAN TEXT,
       CountryId INTEGER, FiscalYearStartMonth INTEGER DEFAULT 4, IsActive INTEGER DEFAULT 1, CreatedDate TEXT
     );
-    CREATE TABLE Countries (
+    CREATE TABLE IF NOT EXISTS Countries (
       CountryId INTEGER PRIMARY KEY AUTOINCREMENT, CountryCode TEXT, CountryName TEXT, CurrencyCode TEXT,
       ISDCode TEXT, IsActive INTEGER DEFAULT 1
     );
-    CREATE TABLE StateMasters (
+    CREATE TABLE IF NOT EXISTS StateMasters (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, StateCode TEXT, StateName TEXT, StateShortName TEXT, StateType TEXT,
       IsActive INTEGER DEFAULT 1, CreatedDate TEXT
     );
-    CREATE TABLE Items (
+    CREATE TABLE IF NOT EXISTS Items (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, ItemCode TEXT, ItemName TEXT, ItemCategoryId INTEGER, HSNCode TEXT,
       UnitId INTEGER, Description TEXT, Barcode TEXT, ReorderLevel REAL DEFAULT 0, ReorderQuantity REAL DEFAULT 0,
       SellingRate REAL DEFAULT 0, PurchaseRate REAL DEFAULT 0, GSTRateId INTEGER, IsActive INTEGER DEFAULT 1,
       CompanyId INTEGER, CreatedDate TEXT
     );
-    CREATE TABLE ItemCategories (
+    CREATE TABLE IF NOT EXISTS ItemCategories (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, CategoryCode TEXT, CategoryName TEXT, IsActive INTEGER DEFAULT 1,
       CompanyId INTEGER, CreatedDate TEXT
     );
-    CREATE TABLE Parties (
+    CREATE TABLE IF NOT EXISTS Parties (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, PartyCode TEXT, PartyName TEXT, PartyType TEXT, GSTIN TEXT, PAN TEXT,
       ContactPerson TEXT, Phone TEXT, Email TEXT, AddressLine1 TEXT, AddressLine2 TEXT, City TEXT, StateId INTEGER,
       StateCode TEXT, PinCode TEXT, CreditLimit REAL DEFAULT 0, OutstandingBalance REAL DEFAULT 0,
       IsActive INTEGER DEFAULT 1, CompanyId INTEGER, CreatedDate TEXT
     );
-    CREATE TABLE Units (
+    CREATE TABLE IF NOT EXISTS Units (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, UnitCode TEXT, UnitName TEXT, UnitType TEXT, IsActive INTEGER DEFAULT 1,
       CompanyId INTEGER
     );
-    CREATE TABLE HSNMaster (
+    CREATE TABLE IF NOT EXISTS HSNMaster (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, HSNCode TEXT, Description TEXT, IsActive INTEGER DEFAULT 1
     );
-    CREATE TABLE GSTRates (
+    CREATE TABLE IF NOT EXISTS GSTRates (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, RateName TEXT, CGSTRate REAL, SGSTRate REAL, IGSTRate REAL,
       CessRate REAL, IsActive INTEGER DEFAULT 1
     );
-    CREATE TABLE Godowns (
+    CREATE TABLE IF NOT EXISTS Godowns (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, GodownCode TEXT, GodownName TEXT, GodownAddress TEXT,
       IsMainGodown INTEGER DEFAULT 0, IsActive INTEGER DEFAULT 1, CompanyId INTEGER
     );
-    CREATE TABLE StockSummary (
+    CREATE TABLE IF NOT EXISTS StockSummary (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, ItemId INTEGER, GodownId INTEGER, BatchNumber TEXT,
       Quantity REAL DEFAULT 0, ReservedQuantity REAL DEFAULT 0, UnitCost REAL DEFAULT 0, TotalValue REAL DEFAULT 0,
       LastUpdated TEXT, IsActive INTEGER DEFAULT 1, CompanyId INTEGER
     );
-    CREATE TABLE Employees (
+    CREATE TABLE IF NOT EXISTS Employees (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, EmployeeCode TEXT, FirstName TEXT, LastName TEXT, DepartmentId INTEGER,
       DesignationId INTEGER, DateOfJoining TEXT, DateOfBirth TEXT, Gender TEXT, Phone TEXT, Email TEXT, Address TEXT,
       BasicSalary REAL DEFAULT 0, PFNumber TEXT, ESINumber TEXT, PAN TEXT, AadhaarNumber TEXT, BankName TEXT,
       BankAccountNumber TEXT, IFSCCode TEXT, IsActive INTEGER DEFAULT 1, CompanyId INTEGER, CreatedDate TEXT
     );
-    CREATE TABLE Departments (
+    CREATE TABLE IF NOT EXISTS Departments (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, DepartmentCode TEXT, DepartmentName TEXT, IsActive INTEGER DEFAULT 1,
       CompanyId INTEGER
     );
-    CREATE TABLE Designations (
+    CREATE TABLE IF NOT EXISTS Designations (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, DesignationCode TEXT, DesignationName TEXT, IsActive INTEGER DEFAULT 1,
       CompanyId INTEGER
     );
-    CREATE TABLE Attendance (
+    CREATE TABLE IF NOT EXISTS Attendance (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, EmployeeId INTEGER, AttendanceDate TEXT, Status TEXT, CheckInTime TEXT,
       CheckOutTime TEXT, HoursWorked REAL DEFAULT 0, OvertimeHours REAL DEFAULT 0, Remarks TEXT,
       IsActive INTEGER DEFAULT 1, CompanyId INTEGER
     );
-    CREATE TABLE PayrollHeaders (
+    CREATE TABLE IF NOT EXISTS PayrollHeaders (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, PeriodId INTEGER, EmployeeId INTEGER, BasicSalary REAL DEFAULT 0,
       GrossEarnings REAL DEFAULT 0, TotalDeductions REAL DEFAULT 0, NetPayable REAL DEFAULT 0,
       Status TEXT DEFAULT 'Draft', ProcessedDate TEXT, ApprovedDate TEXT, IsActive INTEGER DEFAULT 1,
       CompanyId INTEGER
     );
-    CREATE TABLE LeaveTypes (
+    CREATE TABLE IF NOT EXISTS LeaveTypes (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, LeaveTypeCode TEXT, LeaveTypeName TEXT, DaysPerYear INTEGER DEFAULT 0,
       IsCarryForward INTEGER DEFAULT 0, IsPaid INTEGER DEFAULT 1, IsActive INTEGER DEFAULT 1, CompanyId INTEGER,
       SortOrder INTEGER DEFAULT 0
     );
-    CREATE TABLE LeaveBalance (
+    CREATE TABLE IF NOT EXISTS LeaveBalance (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, EmployeeId INTEGER, LeaveTypeId INTEGER, Year INTEGER,
       TotalDays INTEGER DEFAULT 0, UsedDays INTEGER DEFAULT 0, AdjustedDays INTEGER DEFAULT 0,
       IsActive INTEGER DEFAULT 1, CompanyId INTEGER
     );
-    CREATE TABLE SalaryHeads (
+    CREATE TABLE IF NOT EXISTS SalaryHeads (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, HeadCode TEXT, HeadName TEXT, CalculationType TEXT, HeadType TEXT,
       BasedOn TEXT, DefaultPercent REAL DEFAULT 0, IsActive INTEGER DEFAULT 1, CompanyId INTEGER,
       SortOrder INTEGER DEFAULT 0
     );
-    CREATE TABLE Machines (
+    CREATE TABLE IF NOT EXISTS Machines (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, MachineCode TEXT, MachineName TEXT, MachineType TEXT, Make TEXT,
       Model TEXT, LoomCount INTEGER DEFAULT 1, Status TEXT DEFAULT 'Running', Location TEXT,
       IsActive INTEGER DEFAULT 1, CompanyId INTEGER
     );
-    CREATE TABLE SpareParts (
+    CREATE TABLE IF NOT EXISTS SpareParts (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, SparePartCode TEXT, SparePartName TEXT, Description TEXT, Category TEXT,
       CompatibleMachineTypes TEXT, CurrentStock REAL DEFAULT 0, MinStock REAL DEFAULT 0, MaxStock REAL DEFAULT 0,
       ReorderLevel REAL DEFAULT 0, UnitCost REAL DEFAULT 0, IsCriticalSpare INTEGER DEFAULT 0,
       IsActive INTEGER DEFAULT 1, CompanyId INTEGER
     );
-    CREATE TABLE MaintenanceRequests (
+    CREATE TABLE IF NOT EXISTS MaintenanceRequests (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, RequestNumber TEXT, MachineId INTEGER, ReportedBy INTEGER,
       Priority TEXT, Status TEXT, Description TEXT, AssignedTo INTEGER, CompletedDate TEXT, Cost REAL DEFAULT 0,
       Notes TEXT, IsActive INTEGER DEFAULT 1, CompanyId INTEGER
     );
-    CREATE TABLE WorkOrders (
+    CREATE TABLE IF NOT EXISTS WorkOrders (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, WorkOrderNumber TEXT, MachineId INTEGER, Description TEXT,
       Priority TEXT, Status TEXT, AssignedTo INTEGER, ScheduledDate TEXT, CompletedDate TEXT, Notes TEXT,
       IsActive INTEGER DEFAULT 1, CompanyId INTEGER
     );
-    CREATE TABLE WorkOrderSpareParts (
+    CREATE TABLE IF NOT EXISTS WorkOrderSpareParts (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, WorkOrderId INTEGER, SparePartId INTEGER, Quantity REAL DEFAULT 0,
       UnitCost REAL DEFAULT 0, IsActive INTEGER DEFAULT 1
     );
-    CREATE TABLE DowntimeLogs (
+    CREATE TABLE IF NOT EXISTS DowntimeLogs (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, MachineId INTEGER, StartTime TEXT, EndTime TEXT, Reason TEXT,
       Category TEXT, Notes TEXT, IsActive INTEGER DEFAULT 1, CompanyId INTEGER
     );
-    CREATE TABLE PurchaseInvoices (
+    CREATE TABLE IF NOT EXISTS PurchaseInvoices (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, InvoiceNumber TEXT, SupplierId INTEGER, InvoiceDate TEXT,
       DueDate TEXT, SubTotal REAL DEFAULT 0, CGSTAmount REAL DEFAULT 0, SGSTAmount REAL DEFAULT 0,
       IGSTAmount REAL DEFAULT 0, TotalAmount REAL DEFAULT 0, Status TEXT DEFAULT 'Draft',
       IsActive INTEGER DEFAULT 1, CompanyId INTEGER, CreatedDate TEXT
     );
-    CREATE TABLE PurchaseInvoiceDetails (
+    CREATE TABLE IF NOT EXISTS PurchaseInvoiceDetails (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, InvoiceId INTEGER, ItemId INTEGER, Description TEXT,
       Quantity REAL DEFAULT 0, UnitRate REAL DEFAULT 0, Amount REAL DEFAULT 0, CGSTRate REAL DEFAULT 0,
       SGSTRate REAL DEFAULT 0, IGSTRate REAL DEFAULT 0, CGSTAmount REAL DEFAULT 0, SGSTAmount REAL DEFAULT 0,
       IGSTAmount REAL DEFAULT 0, TotalAmount REAL DEFAULT 0, IsActive INTEGER DEFAULT 1
     );
-    CREATE TABLE SalesInvoices (
+    CREATE TABLE IF NOT EXISTS SalesInvoices (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, InvoiceNumber TEXT, CustomerId INTEGER, InvoiceDate TEXT,
       DueDate TEXT, SubTotal REAL DEFAULT 0, CGSTAmount REAL DEFAULT 0, SGSTAmount REAL DEFAULT 0,
       IGSTAmount REAL DEFAULT 0, TotalAmount REAL DEFAULT 0, Status TEXT DEFAULT 'Draft',
       IsActive INTEGER DEFAULT 1, CompanyId INTEGER, CreatedDate TEXT
     );
-    CREATE TABLE SalesInvoiceDetails (
+    CREATE TABLE IF NOT EXISTS SalesInvoiceDetails (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, InvoiceId INTEGER, ItemId INTEGER, Description TEXT,
       Quantity REAL DEFAULT 0, UnitRate REAL DEFAULT 0, Amount REAL DEFAULT 0, CGSTRate REAL DEFAULT 0,
       SGSTRate REAL DEFAULT 0, IGSTRate REAL DEFAULT 0, CGSTAmount REAL DEFAULT 0, SGSTAmount REAL DEFAULT 0,
       IGSTAmount REAL DEFAULT 0, TotalAmount REAL DEFAULT 0, IsActive INTEGER DEFAULT 1
     );
-    CREATE TABLE CostSummaries (
+    CREATE TABLE IF NOT EXISTS CostSummaries (
       Id INTEGER PRIMARY KEY AUTOINCREMENT, MachineId INTEGER, Period TEXT, MaintenanceCost REAL DEFAULT 0,
       SparePartCost REAL DEFAULT 0, DowntimeCost REAL DEFAULT 0, TotalCost REAL DEFAULT 0,
       IsActive INTEGER DEFAULT 1, CompanyId INTEGER
     );
   `);
 
-  seedData();
+  try {
+    seedData();
+  } catch (err) {
+    console.error('Seed data error:', err.message);
+  }
 }
 
 function seedData() {
@@ -1440,6 +1447,15 @@ app.get('/api/debug/dbstatus', (req, res) => {
       tmpPath: '/tmp/textileerp.db'
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.get('/api/debug/reseed', (req, res) => {
+  try {
+    seedData();
+    const userCount = db.prepare('SELECT COUNT(*) as count FROM Users').get();
+    const companyCount = db.prepare('SELECT COUNT(*) as count FROM Companies').get();
+    res.json({ message: 'Seed complete', userCount: userCount?.count, companyCount: companyCount?.count });
+  } catch (err) { res.status(500).json({ message: err.message, stack: err.stack }); }
 });
 
 // ============== MODULE EXPORT ==============
