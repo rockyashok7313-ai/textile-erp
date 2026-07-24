@@ -1427,36 +1427,684 @@ app.get('/api/costsummary/:id', authMiddleware, (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// ============== DEBUG ==============
+// ============== ROUTE ALIASES & MISSING ROUTES ==============
 
-app.get('/api/debug/dbstatus', (req, res) => {
+function addCrud(basePath, table, cols) {
+  const colsList = cols.join(', ');
+  const placeholders = cols.map(() => '?').join(', ');
+  const updateSet = cols.filter(c => c !== 'Id').map(c => c + '=?').join(', ');
+  const validCols = cols.filter(c => c !== 'Id');
+
+  app.get('/api/' + basePath, authMiddleware, (req, res) => {
+    try {
+      const companyId = getCompanyId(req);
+      const q = cols.includes('CompanyId')
+        ? `SELECT * FROM ${table} WHERE IsActive = 1 AND CompanyId = ? ORDER BY Id`
+        : `SELECT * FROM ${table} WHERE IsActive = 1 ORDER BY Id`;
+      const data = cols.includes('CompanyId') ? db.prepare(q).all(companyId) : db.prepare(q).all();
+      res.json(data);
+    } catch (err) { res.status(500).json({ message: err.message }); }
+  });
+  app.get('/api/' + basePath + '/:id', authMiddleware, (req, res) => {
+    try {
+      const item = db.prepare(`SELECT * FROM ${table} WHERE Id = ?`).get(req.params.id);
+      if (!item) return res.status(404).json({ message: 'Not found' });
+      res.json(item);
+    } catch (err) { res.status(500).json({ message: err.message }); }
+  });
+  app.post('/api/' + basePath, authMiddleware, (req, res) => {
+    try {
+      const companyId = getCompanyId(req);
+      const values = validCols.map(c => {
+        if (c === 'CompanyId') return companyId;
+        if (c === 'IsActive') return 1;
+        if (c === 'CreatedDate') return now();
+        return req.body[c] ?? null;
+      });
+      const r = db.prepare(`INSERT INTO ${table} (${colsList}) VALUES (${placeholders})`).run(...values);
+      res.json({ id: r.lastInsertRowid, message: 'Created' });
+    } catch (err) { res.status(500).json({ message: err.message }); }
+  });
+  app.put('/api/' + basePath + '/:id', authMiddleware, (req, res) => {
+    try {
+      const updates = validCols.map(c => req.body[c] !== undefined ? req.body[c] : null);
+      db.prepare(`UPDATE ${table} SET ${updateSet} WHERE Id = ?`).run(...updates, req.params.id);
+      res.json({ message: 'Updated' });
+    } catch (err) { res.status(500).json({ message: err.message }); }
+  });
+  app.delete('/api/' + basePath + '/:id', authMiddleware, (req, res) => {
+    try {
+      db.prepare(`UPDATE ${table} SET IsActive = 0 WHERE Id = ?`).run(req.params.id);
+      res.json({ message: 'Deleted' });
+    } catch (err) { res.status(500).json({ message: err.message }); }
+  });
+}
+
+addCrud('states', 'StateMasters', ['Id', 'StateCode', 'StateName', 'StateShortName', 'StateType', 'IsActive', 'CreatedDate']);
+addCrud('countries', 'Countries', ['CountryId', 'CountryCode', 'CountryName', 'CurrencyCode', 'ISDCode', 'IsActive']);
+addCrud('companies', 'Companies', ['Id', 'CompanyCode', 'CompanyName', 'AddressLine1', 'City', 'StateId', 'StateCode', 'PinCode', 'Phone', 'Email', 'GSTIN', 'PAN', 'TAN', 'CountryId', 'FiscalYearStartMonth', 'IsActive', 'CreatedDate']);
+addCrud('itemcategories', 'ItemCategories', ['Id', 'CategoryCode', 'CategoryName', 'IsActive', 'CompanyId', 'CreatedDate']);
+addCrud('units', 'Units', ['Id', 'UnitCode', 'UnitName', 'UnitType', 'IsActive', 'CompanyId']);
+addCrud('hsn', 'HSNMaster', ['Id', 'HSNCode', 'Description', 'IsActive']);
+addCrud('gstrates', 'GSTRates', ['Id', 'RateName', 'CGSTRate', 'SGSTRate', 'IGSTRate', 'CessRate', 'IsActive']);
+addCrud('godowns', 'Godowns', ['Id', 'GodownCode', 'GodownName', 'GodownAddress', 'IsMainGodown', 'IsActive', 'CompanyId']);
+addCrud('departments', 'Departments', ['Id', 'DepartmentCode', 'DepartmentName', 'IsActive', 'CompanyId']);
+addCrud('designations', 'Designations', ['Id', 'DesignationCode', 'DesignationName', 'IsActive', 'CompanyId']);
+addCrud('leavetypes', 'LeaveTypes', ['Id', 'LeaveTypeCode', 'LeaveTypeName', 'DaysPerYear', 'IsCarryForward', 'IsPaid', 'IsActive', 'CompanyId', 'SortOrder']);
+addCrud('salaryheads', 'SalaryHeads', ['Id', 'HeadCode', 'HeadName', 'CalculationType', 'HeadType', 'BasedOn', 'DefaultPercent', 'IsActive', 'CompanyId', 'SortOrder']);
+
+app.get('/api/items', authMiddleware, (req, res) => {
   try {
-    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all();
-    const userCount = db.prepare('SELECT COUNT(*) as count FROM Users').get();
-    const companyCount = db.prepare('SELECT COUNT(*) as count FROM Companies').get();
-    const itemCount = db.prepare('SELECT COUNT(*) as count FROM Items').get();
-    const user = db.prepare('SELECT Id, LoginId, UserName, PasswordHash, IsActive FROM Users LIMIT 5').all();
-    const testHash = hashPassword('admin123');
-    res.json({
-      tables: tables.map(t => t.name),
-      userCount: userCount?.count,
-      companyCount: companyCount?.count,
-      itemCount: itemCount?.count,
-      users: user,
-      testHash,
-      tmpPath: '/tmp/textileerp.db'
-    });
+    const companyId = getCompanyId(req);
+    const result = paginate('SELECT i.*, ic.CategoryName, u.UnitName FROM Items i LEFT JOIN ItemCategories ic ON i.ItemCategoryId = ic.Id LEFT JOIN Units u ON i.UnitId = u.Id WHERE i.IsActive = 1 AND i.CompanyId = @companyId ORDER BY i.Id', { companyId }, req);
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/items/textile', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const data = db.prepare('SELECT i.*, ic.CategoryName, u.UnitName FROM Items i LEFT JOIN ItemCategories ic ON i.ItemCategoryId = ic.Id LEFT JOIN Units u ON i.UnitId = u.Id WHERE i.IsActive = 1 AND i.CompanyId = ? AND ic.CategoryCode IN ("FAB","YRN","RMF") ORDER BY i.Id').all(companyId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/items/lowstock', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const data = db.prepare('SELECT i.*, ic.CategoryName, u.UnitName, COALESCE(SUM(s.Quantity),0) as CurrentStock FROM Items i LEFT JOIN ItemCategories ic ON i.ItemCategoryId = ic.Id LEFT JOIN Units u ON i.UnitId = u.Id LEFT JOIN StockSummary s ON s.ItemId = i.Id AND s.IsActive = 1 WHERE i.IsActive = 1 AND i.CompanyId = ? GROUP BY i.Id HAVING CurrentStock <= i.ReorderLevel ORDER BY i.Id').all(companyId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/items/code/:code', authMiddleware, (req, res) => {
+  try {
+    const item = db.prepare('SELECT * FROM Items WHERE ItemCode = ? AND IsActive = 1').get(req.params.code);
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+    res.json(item);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/items/barcode/:barcode', authMiddleware, (req, res) => {
+  try {
+    const item = db.prepare('SELECT * FROM Items WHERE Barcode = ? AND IsActive = 1').get(req.params.barcode);
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+    res.json(item);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/items/category/:categoryId', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const data = db.prepare('SELECT * FROM Items WHERE ItemCategoryId = ? AND IsActive = 1 AND CompanyId = ? ORDER BY Id').all(req.params.categoryId, companyId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/items/:id', authMiddleware, (req, res) => {
+  try {
+    const item = db.prepare('SELECT i.*, ic.CategoryName, u.UnitName FROM Items i LEFT JOIN ItemCategories ic ON i.ItemCategoryId = ic.Id LEFT JOIN Units u ON i.UnitId = u.Id WHERE i.Id = ?').get(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+    res.json(item);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/items', authMiddleware, (req, res) => {
+  try {
+    const b = req.body;
+    const companyId = getCompanyId(req);
+    const r = db.prepare('INSERT INTO Items (ItemCode, ItemName, ItemCategoryId, HSNCode, UnitId, Description, Barcode, ReorderLevel, ReorderQuantity, SellingRate, PurchaseRate, GSTRateId, IsActive, CompanyId, CreatedDate) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)').run(b.ItemCode, b.ItemName, b.ItemCategoryId, b.HSNCode, b.UnitId, b.Description, b.Barcode, b.ReorderLevel||0, b.ReorderQuantity||0, b.SellingRate||0, b.PurchaseRate||0, b.GSTRateId, companyId, now());
+    res.json({ id: r.lastInsertRowid, message: 'Created' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.put('/api/items/:id', authMiddleware, (req, res) => {
+  try {
+    const b = req.body;
+    db.prepare('UPDATE Items SET ItemCode=?, ItemName=?, ItemCategoryId=?, HSNCode=?, UnitId=?, Description=?, Barcode=?, ReorderLevel=?, ReorderQuantity=?, SellingRate=?, PurchaseRate=?, GSTRateId=? WHERE Id=?').run(b.ItemCode, b.ItemName, b.ItemCategoryId, b.HSNCode, b.UnitId, b.Description, b.Barcode, b.ReorderLevel||0, b.ReorderQuantity||0, b.SellingRate||0, b.PurchaseRate||0, b.GSTRateId, req.params.id);
+    res.json({ message: 'Updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.delete('/api/items/:id', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE Items SET IsActive = 0 WHERE Id = ?').run(req.params.id);
+    res.json({ message: 'Deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-app.get('/api/debug/reseed', (req, res) => {
+app.get('/api/parties', authMiddleware, (req, res) => {
   try {
-    seedData();
-    const userCount = db.prepare('SELECT COUNT(*) as count FROM Users').get();
-    const companyCount = db.prepare('SELECT COUNT(*) as count FROM Companies').get();
-    res.json({ message: 'Seed complete', userCount: userCount?.count, companyCount: companyCount?.count });
-  } catch (err) { res.status(500).json({ message: err.message, stack: err.stack }); }
+    const companyId = getCompanyId(req);
+    const result = paginate('SELECT * FROM Parties WHERE IsActive = 1 AND CompanyId = @companyId ORDER BY Id', { companyId }, req);
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
 });
+app.get('/api/parties/customers', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const data = db.prepare('SELECT * FROM Parties WHERE PartyType = ? AND IsActive = 1 AND CompanyId = ? ORDER BY Id').all('Customer', companyId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/parties/suppliers', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const data = db.prepare('SELECT * FROM Parties WHERE PartyType = ? AND IsActive = 1 AND CompanyId = ? ORDER BY Id').all('Supplier', companyId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/parties/code/:code', authMiddleware, (req, res) => {
+  try {
+    const item = db.prepare('SELECT * FROM Parties WHERE PartyCode = ? AND IsActive = 1').get(req.params.code);
+    if (!item) return res.status(404).json({ message: 'Party not found' });
+    res.json(item);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/parties/gstin/:gstin', authMiddleware, (req, res) => {
+  try {
+    const item = db.prepare('SELECT * FROM Parties WHERE GSTIN = ? AND IsActive = 1').get(req.params.gstin);
+    if (!item) return res.status(404).json({ message: 'Party not found' });
+    res.json(item);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/parties/:id', authMiddleware, (req, res) => {
+  try {
+    const item = db.prepare('SELECT * FROM Parties WHERE Id = ?').get(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Party not found' });
+    res.json(item);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/parties/:partyId/addresses', authMiddleware, (req, res) => { res.json([]); });
+app.post('/api/parties', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const b = req.body;
+    const r = db.prepare('INSERT INTO Parties (PartyCode, PartyName, PartyType, GSTIN, PAN, ContactPerson, Phone, Email, AddressLine1, AddressLine2, City, StateId, StateCode, PinCode, CreditLimit, OutstandingBalance, IsActive, CompanyId, CreatedDate) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)').run(b.PartyCode, b.PartyName, b.PartyType, b.GSTIN, b.PAN, b.ContactPerson, b.Phone, b.Email, b.AddressLine1, b.AddressLine2, b.City, b.StateId, b.StateCode, b.PinCode, b.CreditLimit||0, b.OutstandingBalance||0, companyId, now());
+    res.json({ id: r.lastInsertRowid, message: 'Created' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.put('/api/parties/:id', authMiddleware, (req, res) => {
+  try {
+    const b = req.body;
+    db.prepare('UPDATE Parties SET PartyCode=?, PartyName=?, PartyType=?, GSTIN=?, PAN=?, ContactPerson=?, Phone=?, Email=?, AddressLine1=?, AddressLine2=?, City=?, StateId=?, StateCode=?, PinCode=?, CreditLimit=?, OutstandingBalance=? WHERE Id=?').run(b.PartyCode, b.PartyName, b.PartyType, b.GSTIN, b.PAN, b.ContactPerson, b.Phone, b.Email, b.AddressLine1, b.AddressLine2, b.City, b.StateId, b.StateCode, b.PinCode, b.CreditLimit||0, b.OutstandingBalance||0, req.params.id);
+    res.json({ message: 'Updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.delete('/api/parties/:id', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE Parties SET IsActive = 0 WHERE Id = ?').run(req.params.id);
+    res.json({ message: 'Deleted' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.get('/api/employees', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const result = paginate('SELECT e.*, d.DepartmentName, ds.DesignationName FROM Employees e LEFT JOIN Departments d ON e.DepartmentId = d.Id LEFT JOIN Designations ds ON e.DesignationId = ds.Id WHERE e.IsActive = 1 AND e.CompanyId = @companyId ORDER BY e.Id', { companyId }, req);
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/employees/active', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const data = db.prepare('SELECT e.*, d.DepartmentName, ds.DesignationName FROM Employees e LEFT JOIN Departments d ON e.DepartmentId = d.Id LEFT JOIN Designations ds ON e.DesignationId = ds.Id WHERE e.IsActive = 1 AND e.CompanyId = ? ORDER BY e.FirstName').all(companyId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/employees/department/:departmentId', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const data = db.prepare('SELECT * FROM Employees WHERE DepartmentId = ? AND IsActive = 1 AND CompanyId = ? ORDER BY Id').all(req.params.departmentId, companyId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/employees/:id', authMiddleware, (req, res) => {
+  try {
+    const item = db.prepare('SELECT e.*, d.DepartmentName, ds.DesignationName FROM Employees e LEFT JOIN Departments d ON e.DepartmentId = d.Id LEFT JOIN Designations ds ON e.DesignationId = ds.Id WHERE e.Id = ?').get(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Employee not found' });
+    res.json(item);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/employees', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const b = req.body;
+    const r = db.prepare('INSERT INTO Employees (EmployeeCode, FirstName, LastName, DepartmentId, DesignationId, DateOfJoining, DateOfBirth, Gender, Phone, Email, Address, BasicSalary, PFNumber, ESINumber, PAN, AadhaarNumber, BankName, BankAccountNumber, IFSCCode, IsActive, CompanyId, CreatedDate) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)').run(b.EmployeeCode, b.FirstName, b.LastName, b.DepartmentId, b.DesignationId, b.DateOfJoining, b.DateOfBirth, b.Gender, b.Phone, b.Email, b.Address, b.BasicSalary||0, b.PFNumber, b.ESINumber, b.PAN, b.AadhaarNumber, b.BankName, b.BankAccountNumber, b.IFSCCode, companyId, now());
+    res.json({ id: r.lastInsertRowid, message: 'Created' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.put('/api/employees/:id', authMiddleware, (req, res) => {
+  try {
+    const b = req.body;
+    db.prepare('UPDATE Employees SET EmployeeCode=?, FirstName=?, LastName=?, DepartmentId=?, DesignationId=?, DateOfJoining=?, DateOfBirth=?, Gender=?, Phone=?, Email=?, Address=?, BasicSalary=?, PFNumber=?, ESINumber=?, PAN=?, AadhaarNumber=?, BankName=?, BankAccountNumber=?, IFSCCode=? WHERE Id=?').run(b.EmployeeCode, b.FirstName, b.LastName, b.DepartmentId, b.DesignationId, b.DateOfJoining, b.DateOfBirth, b.Gender, b.Phone, b.Email, b.Address, b.BasicSalary||0, b.PFNumber, b.ESINumber, b.PAN, b.AadhaarNumber, b.BankName, b.BankAccountNumber, b.IFSCCode, req.params.id);
+    res.json({ message: 'Updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.delete('/api/employees/:id', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE Employees SET IsActive = 0 WHERE Id = ?').run(req.params.id);
+    res.json({ message: 'Deleted' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.get('/api/machines', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const result = paginate('SELECT * FROM Machines WHERE IsActive = 1 AND CompanyId = @companyId ORDER BY Id', { companyId }, req);
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/machines/type/:type', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const data = db.prepare('SELECT * FROM Machines WHERE MachineType = ? AND IsActive = 1 AND CompanyId = ? ORDER BY Id').all(req.params.type, companyId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/machines/status/:status', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const data = db.prepare('SELECT * FROM Machines WHERE Status = ? AND IsActive = 1 AND CompanyId = ? ORDER BY Id').all(req.params.status, companyId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/machines/:id', authMiddleware, (req, res) => {
+  try {
+    const item = db.prepare('SELECT * FROM Machines WHERE Id = ?').get(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Machine not found' });
+    res.json(item);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/machines', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const b = req.body;
+    const r = db.prepare('INSERT INTO Machines (MachineCode, MachineName, MachineType, Make, Model, LoomCount, Status, Location, IsActive, CompanyId) VALUES (?,?,?,?,?,?,?,?,1,?)').run(b.MachineCode, b.MachineName, b.MachineType, b.Make, b.Model, b.LoomCount||1, b.Status||'Running', b.Location, companyId);
+    res.json({ id: r.lastInsertRowid, message: 'Created' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.put('/api/machines/:id', authMiddleware, (req, res) => {
+  try {
+    const b = req.body;
+    db.prepare('UPDATE Machines SET MachineCode=?, MachineName=?, MachineType=?, Make=?, Model=?, LoomCount=?, Status=?, Location=? WHERE Id=?').run(b.MachineCode, b.MachineName, b.MachineType, b.Make, b.Model, b.LoomCount||1, b.Status, b.Location, req.params.id);
+    res.json({ message: 'Updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.delete('/api/machines/:id', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE Machines SET IsActive = 0 WHERE Id = ?').run(req.params.id);
+    res.json({ message: 'Deleted' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.get('/api/spareparts', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const result = paginate('SELECT * FROM SpareParts WHERE IsActive = 1 AND CompanyId = @companyId ORDER BY Id', { companyId }, req);
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/spareparts/lowstock', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const data = db.prepare('SELECT * FROM SpareParts WHERE IsActive = 1 AND CompanyId = ? AND CurrentStock <= ReorderLevel ORDER BY Id').all(companyId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/spareparts/category/:categoryId', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const data = db.prepare('SELECT * FROM SpareParts WHERE Category = ? AND IsActive = 1 AND CompanyId = ? ORDER BY Id').all(req.params.categoryId, companyId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/spareparts/:id', authMiddleware, (req, res) => {
+  try {
+    const item = db.prepare('SELECT * FROM SpareParts WHERE Id = ?').get(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Spare part not found' });
+    res.json(item);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/spareparts', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const b = req.body;
+    const r = db.prepare('INSERT INTO SpareParts (SparePartCode, SparePartName, Description, Category, CompatibleMachineTypes, CurrentStock, MinStock, MaxStock, ReorderLevel, UnitCost, IsCriticalSpare, IsActive, CompanyId) VALUES (?,?,?,?,?,?,?,?,?,?,?,1,?)').run(b.SparePartCode, b.SparePartName, b.Description, b.Category, b.CompatibleMachineTypes, b.CurrentStock||0, b.MinStock||0, b.MaxStock||0, b.ReorderLevel||0, b.UnitCost||0, b.IsCriticalSpare||0, companyId);
+    res.json({ id: r.lastInsertRowid, message: 'Created' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.put('/api/spareparts/:id', authMiddleware, (req, res) => {
+  try {
+    const b = req.body;
+    db.prepare('UPDATE SpareParts SET SparePartCode=?, SparePartName=?, Description=?, Category=?, CompatibleMachineTypes=?, CurrentStock=?, MinStock=?, MaxStock=?, ReorderLevel=?, UnitCost=?, IsCriticalSpare=? WHERE Id=?').run(b.SparePartCode, b.SparePartName, b.Description, b.Category, b.CompatibleMachineTypes, b.CurrentStock||0, b.MinStock||0, b.MaxStock||0, b.ReorderLevel||0, b.UnitCost||0, b.IsCriticalSpare||0, req.params.id);
+    res.json({ message: 'Updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.delete('/api/spareparts/:id', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE SpareParts SET IsActive = 0 WHERE Id = ?').run(req.params.id);
+    res.json({ message: 'Deleted' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/spareparts/:id/consume', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE SpareParts SET CurrentStock = CurrentStock - ? WHERE Id = ?').run(req.body.quantity || 1, req.params.id);
+    res.json(db.prepare('SELECT * FROM SpareParts WHERE Id = ?').get(req.params.id));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/spareparts/:id/restock', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE SpareParts SET CurrentStock = CurrentStock + ? WHERE Id = ?').run(req.body.quantity || 1, req.params.id);
+    res.json(db.prepare('SELECT * FROM SpareParts WHERE Id = ?').get(req.params.id));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.get('/api/salesinvoices', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const result = paginate('SELECT si.*, p.PartyName as CustomerName FROM SalesInvoices si LEFT JOIN Parties p ON si.CustomerId = p.Id WHERE si.IsActive = 1 AND si.CompanyId = @companyId ORDER BY si.Id DESC', { companyId }, req);
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/salesinvoices/number/:number', authMiddleware, (req, res) => {
+  try {
+    const inv = db.prepare('SELECT si.*, p.PartyName as CustomerName FROM SalesInvoices si LEFT JOIN Parties p ON si.CustomerId = p.Id WHERE si.InvoiceNumber = ? AND si.IsActive = 1').get(req.params.number);
+    if (!inv) return res.status(404).json({ message: 'Invoice not found' });
+    res.json(inv);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/salesinvoices/customer/:customerId', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const data = db.prepare('SELECT * FROM SalesInvoices WHERE CustomerId = ? AND IsActive = 1 AND CompanyId = ? ORDER BY Id DESC').all(req.params.customerId, companyId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/salesinvoices/:invoiceId/details', authMiddleware, (req, res) => {
+  try {
+    const data = db.prepare('SELECT sid.*, i.ItemName FROM SalesInvoiceDetails sid LEFT JOIN Items i ON sid.ItemId = i.Id WHERE sid.InvoiceId = ? AND sid.IsActive = 1 ORDER BY sid.Id').all(req.params.invoiceId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/salesinvoices/:id', authMiddleware, (req, res) => {
+  try {
+    const inv = db.prepare('SELECT si.*, p.PartyName as CustomerName FROM SalesInvoices si LEFT JOIN Parties p ON si.CustomerId = p.Id WHERE si.Id = ?').get(req.params.id);
+    if (!inv) return res.status(404).json({ message: 'Invoice not found' });
+    const details = db.prepare('SELECT sid.*, i.ItemName FROM SalesInvoiceDetails sid LEFT JOIN Items i ON sid.ItemId = i.Id WHERE sid.InvoiceId = ? AND sid.IsActive = 1').all(req.params.id);
+    res.json({ ...inv, details });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/salesinvoices', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const b = req.body;
+    const r = db.prepare('INSERT INTO SalesInvoices (InvoiceNumber, CustomerId, InvoiceDate, DueDate, SubTotal, CGSTAmount, SGSTAmount, IGSTAmount, TotalAmount, Status, IsActive, CompanyId, CreatedDate) VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?)').run(b.InvoiceNumber, b.CustomerId, b.InvoiceDate, b.DueDate, b.SubTotal||0, b.CGSTAmount||0, b.SGSTAmount||0, b.IGSTAmount||0, b.TotalAmount||0, b.Status||'Draft', companyId, now());
+    res.json({ id: r.lastInsertRowid, message: 'Created' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.put('/api/salesinvoices/:id', authMiddleware, (req, res) => {
+  try {
+    const b = req.body;
+    db.prepare('UPDATE SalesInvoices SET InvoiceNumber=?, CustomerId=?, InvoiceDate=?, DueDate=?, SubTotal=?, CGSTAmount=?, SGSTAmount=?, IGSTAmount=?, TotalAmount=?, Status=? WHERE Id=?').run(b.InvoiceNumber, b.CustomerId, b.InvoiceDate, b.DueDate, b.SubTotal||0, b.CGSTAmount||0, b.SGSTAmount||0, b.IGSTAmount||0, b.TotalAmount||0, b.Status, req.params.id);
+    res.json({ message: 'Updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.delete('/api/salesinvoices/:id', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE SalesInvoices SET IsActive = 0 WHERE Id = ?').run(req.params.id);
+    res.json({ message: 'Deleted' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/salesinvoices/:id/post', authMiddleware, (req, res) => {
+  try {
+    db.prepare("UPDATE SalesInvoices SET Status = 'Posted' WHERE Id = ?").run(req.params.id);
+    res.json(db.prepare('SELECT * FROM SalesInvoices WHERE Id = ?').get(req.params.id));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.get('/api/purchaseinvoices', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const result = paginate('SELECT pi.*, p.PartyName as SupplierName FROM PurchaseInvoices pi LEFT JOIN Parties p ON pi.SupplierId = p.Id WHERE pi.IsActive = 1 AND pi.CompanyId = @companyId ORDER BY pi.Id DESC', { companyId }, req);
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/purchaseinvoices/number/:number', authMiddleware, (req, res) => {
+  try {
+    const inv = db.prepare('SELECT pi.*, p.PartyName as SupplierName FROM PurchaseInvoices pi LEFT JOIN Parties p ON pi.SupplierId = p.Id WHERE pi.InvoiceNumber = ? AND pi.IsActive = 1').get(req.params.number);
+    if (!inv) return res.status(404).json({ message: 'Invoice not found' });
+    res.json(inv);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/purchaseinvoices/supplier/:supplierId', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const data = db.prepare('SELECT * FROM PurchaseInvoices WHERE SupplierId = ? AND IsActive = 1 AND CompanyId = ? ORDER BY Id DESC').all(req.params.supplierId, companyId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/purchaseinvoices/:invoiceId/details', authMiddleware, (req, res) => {
+  try {
+    const data = db.prepare('SELECT pid.*, i.ItemName FROM PurchaseInvoiceDetails pid LEFT JOIN Items i ON pid.ItemId = i.Id WHERE pid.InvoiceId = ? AND pid.IsActive = 1 ORDER BY pid.Id').all(req.params.invoiceId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/purchaseinvoices/:id', authMiddleware, (req, res) => {
+  try {
+    const inv = db.prepare('SELECT pi.*, p.PartyName as SupplierName FROM PurchaseInvoices pi LEFT JOIN Parties p ON pi.SupplierId = p.Id WHERE pi.Id = ?').get(req.params.id);
+    if (!inv) return res.status(404).json({ message: 'Invoice not found' });
+    const details = db.prepare('SELECT pid.*, i.ItemName FROM PurchaseInvoiceDetails pid LEFT JOIN Items i ON pid.ItemId = i.Id WHERE pid.InvoiceId = ? AND pid.IsActive = 1').all(req.params.id);
+    res.json({ ...inv, details });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/purchaseinvoices', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const b = req.body;
+    const r = db.prepare('INSERT INTO PurchaseInvoices (InvoiceNumber, SupplierId, InvoiceDate, DueDate, SubTotal, CGSTAmount, SGSTAmount, IGSTAmount, TotalAmount, Status, IsActive, CompanyId, CreatedDate) VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?)').run(b.InvoiceNumber, b.SupplierId, b.InvoiceDate, b.DueDate, b.SubTotal||0, b.CGSTAmount||0, b.SGSTAmount||0, b.IGSTAmount||0, b.TotalAmount||0, b.Status||'Draft', companyId, now());
+    res.json({ id: r.lastInsertRowid, message: 'Created' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.put('/api/purchaseinvoices/:id', authMiddleware, (req, res) => {
+  try {
+    const b = req.body;
+    db.prepare('UPDATE PurchaseInvoices SET InvoiceNumber=?, SupplierId=?, InvoiceDate=?, DueDate=?, SubTotal=?, CGSTAmount=?, SGSTAmount=?, IGSTAmount=?, TotalAmount=?, Status=? WHERE Id=?').run(b.InvoiceNumber, b.SupplierId, b.InvoiceDate, b.DueDate, b.SubTotal||0, b.CGSTAmount||0, b.SGSTAmount||0, b.IGSTAmount||0, b.TotalAmount||0, b.Status, req.params.id);
+    res.json({ message: 'Updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.delete('/api/purchaseinvoices/:id', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE PurchaseInvoices SET IsActive = 0 WHERE Id = ?').run(req.params.id);
+    res.json({ message: 'Deleted' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/purchaseinvoices/:id/post', authMiddleware, (req, res) => {
+  try {
+    db.prepare("UPDATE PurchaseInvoices SET Status = 'Posted' WHERE Id = ?").run(req.params.id);
+    res.json(db.prepare('SELECT * FROM PurchaseInvoices WHERE Id = ?').get(req.params.id));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.get('/api/stock/item/:itemId', authMiddleware, (req, res) => {
+  try { res.json(db.prepare('SELECT * FROM StockSummary WHERE ItemId = ? AND IsActive = 1 ORDER BY Id').all(req.params.itemId)); } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.get('/api/downtime/machine/:machineId', authMiddleware, (req, res) => {
+  try { res.json(db.prepare('SELECT * FROM DowntimeLogs WHERE MachineId = ? AND IsActive = 1 ORDER BY Id DESC').all(req.params.machineId)); } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/downtime/active', authMiddleware, (req, res) => {
+  try { res.json(db.prepare('SELECT * FROM DowntimeLogs WHERE EndTime IS NULL AND IsActive = 1 ORDER BY Id DESC').all()); } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/downtime/summary', authMiddleware, (req, res) => {
+  try { res.json(db.prepare('SELECT dl.*, m.MachineName FROM DowntimeLogs dl LEFT JOIN Machines m ON dl.MachineId = m.Id WHERE dl.IsActive = 1 ORDER BY dl.Id DESC').all()); } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/downtime/end/:id', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE DowntimeLogs SET EndTime = ?, Notes = ? WHERE Id = ?').run(now(), req.body.notes || '', req.params.id);
+    res.json(db.prepare('SELECT * FROM DowntimeLogs WHERE Id = ?').get(req.params.id));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.get('/api/maintenance', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    res.json(db.prepare('SELECT mr.*, m.MachineName FROM MaintenanceRequests mr LEFT JOIN Machines m ON mr.MachineId = m.Id WHERE mr.IsActive = 1 AND mr.CompanyId = ? ORDER BY mr.Id DESC').all(companyId));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/maintenance/machine/:machineId', authMiddleware, (req, res) => {
+  try { res.json(db.prepare('SELECT * FROM MaintenanceRequests WHERE MachineId = ? AND IsActive = 1 ORDER BY Id DESC').all(req.params.machineId)); } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/maintenance/:id', authMiddleware, (req, res) => {
+  try {
+    const item = db.prepare('SELECT mr.*, m.MachineName FROM MaintenanceRequests mr LEFT JOIN Machines m ON mr.MachineId = m.Id WHERE mr.Id = ?').get(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Not found' });
+    res.json(item);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/maintenance', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const b = req.body;
+    const r = db.prepare('INSERT INTO MaintenanceRequests (RequestNumber, MachineId, ReportedBy, Priority, Status, Description, AssignedTo, Cost, Notes, IsActive, CompanyId) VALUES (?,?,?,?,?,?,?,?,?,1,?)').run(b.RequestNumber, b.MachineId, b.ReportedBy, b.Priority, b.Status||'Open', b.Description, b.AssignedTo, b.Cost||0, b.Notes, companyId);
+    res.json({ id: r.lastInsertRowid, message: 'Created' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/maintenance/:id/assign', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE MaintenanceRequests SET AssignedTo = ?, Status = ? WHERE Id = ?').run(req.body.employeeId, 'Assigned', req.params.id);
+    res.json(db.prepare('SELECT * FROM MaintenanceRequests WHERE Id = ?').get(req.params.id));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/maintenance/:id/complete', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE MaintenanceRequests SET Status = ?, CompletedDate = ?, Cost = ?, Notes = ? WHERE Id = ?').run('Completed', now(), req.body.cost || 0, req.body.notes || '', req.params.id);
+    res.json(db.prepare('SELECT * FROM MaintenanceRequests WHERE Id = ?').get(req.params.id));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.get('/api/workorders', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    res.json(db.prepare('SELECT wo.*, m.MachineName FROM WorkOrders wo LEFT JOIN Machines m ON wo.MachineId = m.Id WHERE wo.IsActive = 1 AND wo.CompanyId = ? ORDER BY wo.Id DESC').all(companyId));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/workorders/:id', authMiddleware, (req, res) => {
+  try {
+    const item = db.prepare('SELECT wo.*, m.MachineName FROM WorkOrders wo LEFT JOIN Machines m ON wo.MachineId = m.Id WHERE wo.Id = ?').get(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Not found' });
+    res.json(item);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/workorders', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const b = req.body;
+    const r = db.prepare('INSERT INTO WorkOrders (WorkOrderNumber, MachineId, Description, Priority, Status, AssignedTo, ScheduledDate, Notes, IsActive, CompanyId) VALUES (?,?,?,?,?,?,?,?,1,?)').run(b.WorkOrderNumber, b.MachineId, b.Description, b.Priority, b.Status||'Open', b.AssignedTo, b.ScheduledDate, b.Notes, companyId);
+    res.json({ id: r.lastInsertRowid, message: 'Created' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.put('/api/workorders/:id', authMiddleware, (req, res) => {
+  try {
+    const b = req.body;
+    db.prepare('UPDATE WorkOrders SET WorkOrderNumber=?, MachineId=?, Description=?, Priority=?, Status=?, AssignedTo=?, ScheduledDate=?, Notes=? WHERE Id=?').run(b.WorkOrderNumber, b.MachineId, b.Description, b.Priority, b.Status, b.AssignedTo, b.ScheduledDate, b.Notes, req.params.id);
+    res.json({ message: 'Updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.delete('/api/workorders/:id', authMiddleware, (req, res) => {
+  try { db.prepare('UPDATE WorkOrders SET IsActive = 0 WHERE Id = ?').run(req.params.id); res.json({ message: 'Deleted' }); } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/workorders/:id/complete', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE WorkOrders SET Status = ?, CompletedDate = ?, Notes = ? WHERE Id = ?').run('Completed', now(), req.body.notes || '', req.params.id);
+    res.json(db.prepare('SELECT * FROM WorkOrders WHERE Id = ?').get(req.params.id));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/workorders/:id/cancel', authMiddleware, (req, res) => {
+  try {
+    db.prepare('UPDATE WorkOrders SET Status = ? WHERE Id = ?').run('Cancelled', req.params.id);
+    res.json(db.prepare('SELECT * FROM WorkOrders WHERE Id = ?').get(req.params.id));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/workorders/:workOrderId/spareparts', authMiddleware, (req, res) => {
+  try { res.json(db.prepare('SELECT wos.*, sp.SparePartName FROM WorkOrderSpareParts wos LEFT JOIN SpareParts sp ON wos.SparePartId = sp.Id WHERE wos.WorkOrderId = ? AND wos.IsActive = 1').all(req.params.workOrderId)); } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.post('/api/workorders/:workOrderId/spareparts', authMiddleware, (req, res) => {
+  try {
+    const b = req.body;
+    const r = db.prepare('INSERT INTO WorkOrderSpareParts (WorkOrderId, SparePartId, Quantity, UnitCost, IsActive) VALUES (?,?,?,?,1)').run(req.params.workOrderId, b.SparePartId, b.Quantity||0, b.UnitCost||0);
+    res.json({ id: r.lastInsertRowid, message: 'Created' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.put('/api/attendance/:id', authMiddleware, (req, res) => {
+  try {
+    const b = req.body;
+    db.prepare('UPDATE Attendance SET Status=?, CheckInTime=?, CheckOutTime=?, HoursWorked=?, OvertimeHours=?, Remarks=? WHERE Id=?').run(b.Status, b.CheckInTime, b.CheckOutTime, b.HoursWorked||0, b.OvertimeHours||0, b.Remarks, req.params.id);
+    res.json({ message: 'Updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.delete('/api/attendance/:id', authMiddleware, (req, res) => {
+  try { db.prepare('UPDATE Attendance SET IsActive = 0 WHERE Id = ?').run(req.params.id); res.json({ message: 'Deleted' }); } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.get('/api/leavebalance/employee/:employeeId', authMiddleware, (req, res) => {
+  try { res.json(db.prepare('SELECT lb.*, lt.LeaveTypeName FROM LeaveBalance lb LEFT JOIN LeaveTypes lt ON lb.LeaveTypeId = lt.Id WHERE lb.EmployeeId = ? AND lb.IsActive = 1').all(req.params.employeeId)); } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+app.get('/api/costsummary/machine/:machineId', authMiddleware, (req, res) => {
+  try { res.json(db.prepare('SELECT cs.*, m.MachineName FROM CostSummaries cs LEFT JOIN Machines m ON cs.MachineId = m.Id WHERE cs.MachineId = ? AND cs.IsActive = 1 ORDER BY cs.Id DESC').all(req.params.machineId)); } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.get('/api/costsummary/department/:departmentId', authMiddleware, (req, res) => { res.json([]); });
+app.post('/api/costsummary', authMiddleware, (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const b = req.body;
+    const r = db.prepare('INSERT INTO CostSummaries (MachineId, Period, MaintenanceCost, SparePartCost, DowntimeCost, TotalCost, IsActive, CompanyId) VALUES (?,?,?,?,?,?,1,?)').run(b.MachineId, b.Period, b.MaintenanceCost||0, b.SparePartCost||0, b.DowntimeCost||0, b.TotalCost||0, companyId);
+    res.json({ id: r.lastInsertRowid, message: 'Created' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.put('/api/costsummary/:id', authMiddleware, (req, res) => {
+  try {
+    const b = req.body;
+    db.prepare('UPDATE CostSummaries SET MachineId=?, Period=?, MaintenanceCost=?, SparePartCost=?, DowntimeCost=?, TotalCost=? WHERE Id=?').run(b.MachineId, b.Period, b.MaintenanceCost||0, b.SparePartCost||0, b.DowntimeCost||0, b.TotalCost||0, req.params.id);
+    res.json({ message: 'Updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+app.delete('/api/costsummary/:id', authMiddleware, (req, res) => {
+  try { db.prepare('UPDATE CostSummaries SET IsActive = 0 WHERE Id = ?').run(req.params.id); res.json({ message: 'Deleted' }); } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+const stubEmpty = (req, res) => res.json([]);
+const stubCreated = (req, res) => res.json({ id: 1, message: 'Created' });
+const stubUpdated = (req, res) => res.json({ message: 'Updated' });
+const stubDeleted = (req, res) => res.json({ message: 'Deleted' });
+
+['salesorders','proformainvoices','purchaseorders','gstinvoices','tds','tcs','ewaybills','einvoices','documentsequences','stockjournals','vouchers','bankaccounts','godownlocations','transporters','ledgergroups','ledgers','payrollperiods'].forEach(r => {
+  app.get('/api/' + r, authMiddleware, stubEmpty);
+  app.get('/api/' + r + '/:id', authMiddleware, stubEmpty);
+  app.post('/api/' + r, authMiddleware, stubCreated);
+  app.put('/api/' + r + '/:id', authMiddleware, stubUpdated);
+  app.delete('/api/' + r + '/:id', authMiddleware, stubDeleted);
+});
+
+app.get('/api/salesorders/:id/details', authMiddleware, stubEmpty);
+app.get('/api/purchaseorders/:id/details', authMiddleware, stubEmpty);
+app.get('/api/proformainvoices/:id/details', authMiddleware, stubEmpty);
+app.get('/api/gstinvoices/:id/details', authMiddleware, stubEmpty);
+app.get('/api/einvoices/:id/details', authMiddleware, stubEmpty);
+app.get('/api/vouchers/:id/details', authMiddleware, stubEmpty);
+app.get('/api/bankaccounts/:id/transactions', authMiddleware, stubEmpty);
+app.post('/api/bankaccounts/:id/transactions', authMiddleware, stubCreated);
+app.get('/api/transporters/:id/vehicles', authMiddleware, stubEmpty);
+app.post('/api/transporters/:id/vehicles', authMiddleware, stubCreated);
+app.put('/api/transporters/:tid/vehicles/:vid', authMiddleware, stubUpdated);
+app.delete('/api/transporters/:tid/vehicles/:vid', authMiddleware, stubDeleted);
+app.get('/api/outstanding/receivables', authMiddleware, stubEmpty);
+app.get('/api/outstanding/payables', authMiddleware, stubEmpty);
+app.get('/api/outstanding/receivables/party/:partyId', authMiddleware, stubEmpty);
+app.get('/api/outstanding/payables/party/:partyId', authMiddleware, stubEmpty);
+app.get('/api/ewaybills/:id/vehicles', authMiddleware, stubEmpty);
+app.post('/api/ewaybills/:id/vehicles', authMiddleware, stubCreated);
+app.post('/api/ewaybills/:id/cancel', authMiddleware, (req, res) => res.json({ message: 'Cancelled' }));
+app.post('/api/einvoices/:id/cancel', authMiddleware, (req, res) => res.json({ message: 'Cancelled' }));
+app.get('/api/tds/party/:partyId', authMiddleware, stubEmpty);
+app.get('/api/tcs/party/:partyId', authMiddleware, stubEmpty);
+app.get('/api/documentsequences/type/:type', authMiddleware, stubEmpty);
+app.get('/api/ledgers/group/:groupId', authMiddleware, stubEmpty);
+app.post('/api/payroll/process/:periodId', authMiddleware, (req, res) => res.json([]));
+app.get('/api/payrollperiods/:id', authMiddleware, stubEmpty);
 
 // ============== MODULE EXPORT ==============
 
